@@ -1,0 +1,93 @@
+
+#include "mbed.h"
+#include <exception>
+
+float TI = 0.001; // 1kHz sample time
+float KP = 0.35; // Proportional Gain
+float KD = 0; // Derivative Gain
+float e = 0;
+float previousError = 0.0;
+float errorChange = 0.0;
+float controllerOutput = 0.0;
+float reference = 0.0;
+float senSlope = 14;
+float center = 0.068;
+
+// maps input value from its original bounds to desired output bounds
+float map(float x, float in_min, float in_max, float out_min, float out_max)
+    {
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+float steering_control(float reference, float feedback)
+{
+    e = reference - feedback;
+    errorChange = (e - previousError)/TI;
+    float controlAction = KP*e + KD*errorChange;
+    previousError = e;
+    
+    return controlAction;
+}
+float get_feedback(AnalogIn &inductor1, AnalogIn &inductor2) {
+    float left_sensor_sum = 0;
+    float right_sensor_sum = 0;
+    int samples = 1;
+    for (int i = 0; i < samples; i++) {
+        left_sensor_sum += inductor1.read();
+        right_sensor_sum += inductor2.read();
+    }
+    float left_sensor_avg = left_sensor_sum/samples;
+    float right_sensor_avg = right_sensor_sum/samples;
+    printf("   left sensor: %3.3f%", left_sensor_avg);
+    printf("   right sensor: %3.3f%", right_sensor_avg);
+    float feedback = left_sensor_avg - right_sensor_avg;
+    return feedback;
+}
+
+int main()
+{
+    // Initialise the digital pin LED1 as an output
+    AnalogIn ain(A0); // input from voltage divider
+    AnalogIn inductor1(A2); // input from inductor 1
+    AnalogIn inductor2(A1); // input from inductor 2
+    PwmOut servo(D3); // PWM output to servo
+
+    servo.period_ms(20); // set servo frequency to 50 Hz (20 ms period)
+    
+
+    while (true) {
+
+        // float feedback = (inductor1.read()-inductor2.read());
+        float feedback = get_feedback(inductor1, inductor2)/senSlope;
+        printf("   feedback: %3.3f", feedback);
+        float u = steering_control(reference, feedback);
+        printf("   u: %3.3f", u);
+        if(abs(u) < 0.02){ // input protection for servo motor
+            float percent_change = ((center+u)-servo.read())/servo.read();
+            printf("    percent change: %3.3f", percent_change);
+            if (abs(percent_change) > 0.035)
+            servo.write(center + u);
+        }
+        // float current_servo_angle = servo.read();
+        // // printf("current voltage: %3.3f%", ain.read() * 3.3); // read analog in and convert to voltage
+        // // printf("   float value: %3.3f%", ain.read()); // print current float value from analog in (0-1)
+        // float left_sensor = inductor1.read();
+        // printf("   left sensor: %3.3f%", left_sensor);
+        // float right_sensor = inductor2.read();
+        // printf("   right sensor: %3.3f%", right_sensor);
+        // float sensor_diff = right_sensor - left_sensor;
+        // // printf("   sensor difference: %3.3f%", sensor_diff-0.05);
+        // float u = steering_control(0, sensor_diff);
+        // servo.write(u);
+        
+        // map servo target from 0-1 analog input to 5%-8% duty cycle target
+        // float servo_target = map(inductor2.read()-inductor1.read()-0.05, -0.9, 0.9, 0.05, 0.09);
+        // servo.write(servo_target); // set servo position
+        // printf("   location: %f%", servo_target);
+        // servo.write(ain.read()/33.3 + 0.05);
+
+        printf("   servo position: %3.3f% \n\n", servo.read());
+        // ThisThread::sleep_for(1s);
+        
+    }
+}
