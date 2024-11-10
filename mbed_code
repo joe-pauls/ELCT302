@@ -3,14 +3,21 @@
 #include <exception>
 #include "Ticker.h"
 
-float TI = 0.001; // 1kHz sample time
+float TI = 0.02; // 1kHz sample time
+// float Kcrit = 0.25;
+// float Tcrit = 1.5;
+// float KP = 0.7*Kcrit; // Proportional Gain
+// float KI = 1.2*Kcrit/Tcrit; // Integral Gain
+// float KD = 0.075*Kcrit/Tcrit; // Derivative Gain
 float KP = 0.25; // Proportional Gain
 float KD = 0.01; // Derivative Gain
+float KI = 0;
 float e = 0;
 float feedback = 0;
 float controlAction = 0.0;
 float previousError = 0.0;
 float errorChange = 0.0;
+float integralSum = 0.0;
 float controllerOutput = 0.0;
 float reference = 0.0;
 float senSlope = 13; //13
@@ -27,8 +34,12 @@ float map(float x, float in_min, float in_max, float out_min, float out_max)
 void steering_control()
 {
     e = reference - feedback;
-    errorChange = (e - previousError)/TI;
-    controlAction = KP*e + KD*errorChange;
+    if(abs(e) < 0.01){
+        integralSum = 0;
+    }
+    errorChange = (e - previousError)/TI; // Euler approximation of derivative
+    integralSum += e*TI;
+    controlAction = KP*e + KD*errorChange + KI*integralSum;
     previousError = e;
 }
 
@@ -36,7 +47,7 @@ void steering_control()
 void get_feedback(AnalogIn &inductor1, AnalogIn &inductor2) {
     float left_sensor_sum = 0;
     float right_sensor_sum = 0;
-    int samples = 50;
+    int samples = 100;
     for (int i = 0; i < samples; i++) {
         left_sensor_sum += inductor1.read();
         right_sensor_sum += inductor2.read();
@@ -62,6 +73,8 @@ int main()
     AnalogIn ain(A0); // input from voltage divider
     AnalogIn inductor1(A2); // input from inductor 1
     AnalogIn inductor2(A1); // input from inductor 2
+    AnalogIn detectLeft(A3);
+    AnalogIn detectRight(A4);
     PwmOut servo(D3); // PWM output to servo
     DigitalOut motor(D10); // PWM output to motor
 
@@ -90,9 +103,12 @@ int main()
         }
         if (programRunning) {
             get_feedback(inductor1, inductor2);
-            printf("   feedback: %3.3f", feedback);
+            printf("    left signal: %3.3f", detectLeft.read());
+            printf("    right signal: %3.3f", detectRight.read());
+            // printf("   error: %3.3f", e);
+            // printf("   integralSum: %3.3f", integralSum);
             printf("   u: %3.3f", controlAction);
-            if(abs(controlAction) < 0.03){ // input protection for servo motor
+            if(abs(controlAction) < 0.02){ // input protection for servo motor
                 float percent_change = ((center+controlAction)-servo.read())/servo.read();
                 printf("    percent change: %3.3f", percent_change);
                 if (abs(percent_change) > control_threshold){
@@ -100,7 +116,7 @@ int main()
                 }
             }
             else{
-                controlAction = controlAction/controlAction*0.03;
+                controlAction = controlAction/controlAction*0.02;
                 servo.write(center+controlAction);
             }
             printf("   servo position: %3.3f% \n\n", servo.read());
