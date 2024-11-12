@@ -1,54 +1,72 @@
 
 #include "mbed.h"
 #include <exception>
+#include <cstdio>
+#include <Ticker.h>
 
-#define DT 0.001 // Sample Time
-#define KP 0.25f // Proportional Gain for Control System
-#define KI 0.0f // Integral Gain for Control System
-#define KD 0.01f // Derivative Gain for Control System
-#define samples 100 // Number of samples to average for inductive sensors
-#define senSlope 13 // slope for feedback gain conversion
-#define steering_reference 0.066f // center of servo motor steering range (in PWM)
-#define control_threshold 0.01f // percent change threshold to execute new control action
+#define TI_driving 0.001f          // 1kHz sample time
+#define TI_steering 0.02f   // 50 Hz sample time
+#define Vbat 7.2f           // Battery voltage
 
+// Steering variables
+float KP_steering = 0.25; // Proportional Gain
+float KD_steering = 0.01; // Derivative Gain
+float KI_steering = 0; // Integral Gain
+float error_current_steering = 0; // error term
+float feedback = 0; // feedback value from inductive sensors
+float controlAction = 0.0; // control action from steering controller
+float previousError = 0.0;
+float errorChange = 0.0;
+float integralSum = 0.0; // Area prior
+float controllerOutput = 0.0;
+float reference = 0.0;
+float senSlope = 13; //13
+float center = 0.066; // 0.066
+float control_threshold = 0.01; //0.01
 
 AnalogIn ain(A0); // input from voltage divider
 AnalogIn inductor1(A2); // input from inductor 1
 AnalogIn inductor2(A1); // input from inductor 2
-AnalogIn detectLeft(A3); // input from left landmark sensor (low=landmark detected)
-AnalogIn detectRight(A4); // input from right landmark sensor (low=landmark detected)
+AnalogIn detectLeft(A3);
+AnalogIn detectRight(A4);
 PwmOut servo(D3); // PWM output to servo
 
-servo.period_ms(20); // set servo frequency to 50 Hz (20 ms period)
+// Driving variables
+float targetSpeed = 0.1;   // Target wheel speed PWM
+float KP_driving = 2.665;   // Proportional gain
+float KI_driving = 1.674;   // Integral gain
+float KD_driving = 0;
+float output = 0;
+float bound_output = 0;
+float current_speed = 0;
+float error_current = 0;
 
-InterruptIn Button(BUTTON1); // Onboard button for on/off
+AnalogIn feedback_sensor(A5);     // Sensor reading feedback
+PwmOut control_output(D6);        // PWM output to control system
+
+// State conditions
+bool buttonPressed = false;
 bool programRunning = false;
 
-void onButtonPress() {
-    programRunning = !programRunning;
-}
-
-Button.fall(&onButtonPress);
-
-float calculateIntegral(float error_current, float sample_time, float& area_prior){
-
-   // Calculate the integral using the Euler forward approximation method.
-   float area_current = sample_time*error_current + area_prior;
+// Function to calculate the integral term using Euler forward approximation
+float calculateIntegral(float error_current, float& area_prior, float sample_time) {
+   // Integral approximation: area_current = area_prior + (error_current * DT)
+   float area_current = area_prior + (error_current * sample_time);
+   
+   // Update the area prior variable for the next iteration
    area_prior = area_current;
+   
    return area_current;
-
 }
 
-float calculateDerivative(float error_current, float error_prior, float sample_time){
-
-    // Calculate the derivative using the Euler forward approximation method.
-   float derivative_error = (error_current - error_prior)/sample_time;
-   return derivative_error;
-
+// Function to calculate the derivative term using a first-order Taylor series approximation
+float calculateDerivative(float error_current, float error_prior, float sample_time) {
+   // Derivative approximation: (error_current - error_prior) / DT
+   return (error_current - error_prior) / sample_time;
 }
 
-
-float calculatePIDOutput(float error_current, float error_prior, float sample_time, float& area_prior, float kp, float ki, float kd){
+// Function to calculate the PID
+float calculatePIDOutput(float sample_time, float error_current, float error_prior, float& area_prior, float kp, float ki, float kd){
 
    // Calculate the integral approximation of the error curve up to the current time.
    float area_current = calculateIntegral(error_current, sample_time, area_prior);
@@ -63,75 +81,120 @@ float calculatePIDOutput(float error_current, float error_prior, float sample_ti
 
 }
 
-float get_feedback(AnalogIn &inductor1, AnalogIn &inductor2) {
+// Main driving function called by the ticker
+void drivingUpdate() {
+   // Static variables to store values between function calls
+   static float area_prior = 0.0f;
+   static float error_prior = 0.0f;
+   
+   // Read sensor feedback and user-defined reference
+   current_speed = feedback_sensor.read();
+   float reference = targetSpeed;
+   
+   // Calculate the current error
+   error_current = reference - current_speed;
+   
+   // Calculate the PID controller output
+   output = calculatePIDOutput(TI_driving, error_current, error_prior, area_prior, KP_driving, KI_driving, KD_driving);
+   
+   // Bound the output to the PWM range [0.0, 1.0]
+   bound_output = (fmax(0.0f, fmin(output, 1.0f)));
+   
+   // Set the PWM duty cycle
+   control_output.write(bound_output);
+   
+   // Update prior error for the next iteration
+   error_prior = error_current;
+}
+
+// Main steering function called by the ticker
+void steeringUpdate()
+{
+    error_current_steering = reference - feedback;
+    if(abs(error_current_steering) < 0.01){
+        integralSum = 0;
+    }
+    errorChange = (error_current_steering - previousError)/TI_steering; // Euler approximation of derivative
+    integralSum += error_current_steering*TI_steering;
+    controlAction = calculatePIDOutput(TI_steering, error_current_steering, errorChange, integralSum, KP_steering, KI_steering, KD_steering);
+    previousError = error_current_steering;
+}
+
+// Takes the average of however many samples from the left and right sensors before calculating sensor feedback
+void get_feedback(AnalogIn &inductor1, AnalogIn &inductor2) {
     float left_sensor_sum = 0;
     float right_sensor_sum = 0;
+    int samples = 100;
     for (int i = 0; i < samples; i++) {
         left_sensor_sum += inductor1.read();
         right_sensor_sum += inductor2.read();
     }
     float left_sensor_avg = left_sensor_sum/samples;
     float right_sensor_avg = right_sensor_sum/samples;
-
-    printf("   left sensor: %3.3f%", left_sensor_avg);
-    printf("   right sensor: %3.3f%", right_sensor_avg);
-    if(left_sensor_avg < 0.2 && right_sensor_avg < 0.2) { // Off-track detection
+    if(left_sensor_avg < 0.2 && right_sensor_avg < 0.2) {
         programRunning = false;
     }
-
-    float feedback = (left_sensor_avg - right_sensor_avg)/senSlope;
-    return feedback;
+    printf("   left sensor: %3.3f%", left_sensor_avg);
+    printf("   right sensor: %3.3f%", right_sensor_avg);
+    feedback = (left_sensor_avg - right_sensor_avg)/senSlope;
 }
 
-void controlUpdate(void){
+InterruptIn Button(BUTTON1);
 
-   // Declare static variables (Values will be carried over to the subsequent function calls)
-   // Also this will not override the static variables back to zero during subsequent function calls.
-   static float area_prior = 0;
-   static float error_prior = 0;
+void onButtonPress() {
+    buttonPressed = true; // Set the flag when button is pressed
+}
 
-   // Get the feedback value from the sensor
-   float feedback = get_feedback(inductor1, inductor2);
-    // Get reference value from the user input device
-//    float speed_reference = 0
+int main()
+{
+    servo.period_ms(20); // set servo frequency to 50 Hz (20 ms period)
+    // Initialize steering Ticker
+    Ticker steering_ticker;
+    steering_ticker.attach(&steeringUpdate,TI_steering);
+    // Initialize driving Ticker
+    // Ticker driving_ticker;
+    // driving_ticker.attach(&drivingUpdate, TI_driving);
 
-   // Calculate the error term
-   float error_current = steering_reference - feedback;
+    Button.fall(&onButtonPress);
 
-   // Calculate the output of the PID Controller
-   float controlAction = calculatePIDOutput(error_current, error_prior, DT, area_prior, KP, KI, KD);
+    while (true) {
+        // Check if the button was pressed
+        if (buttonPressed) {
+            buttonPressed = false; // Reset the flag
 
-   // Bound the output
-    if(abs(controlAction) < 0.02){ // input protection for servo motor
-        float current_steering_angle = servo.read();
-        float percent_change = ((steering_reference+controlAction)-current_steering_angle)/current_steering_angle;
-        printf("    percent change: %3.3f", percent_change);
-        if (abs(percent_change) > control_threshold){
-            servo.write(steering_reference+controlAction); // Only implements new control action if percent change is above control threshold
+            // Toggle the program running state
+            programRunning = !programRunning;
+
+            if (programRunning) {
+                printf("Button pressed! Starting program...\n");
+                // Turn motor on
+            } else {
+                printf("Button pressed! Stopping program...\n");
+                // Turn motor off
+            }
+        }
+        if (programRunning) {
+            drivingUpdate();
+            get_feedback(inductor1, inductor2);
+            printf("    left signal: %3.3f", detectLeft.read());
+            printf("    right signal: %3.3f", detectRight.read());
+            // printf("   error: %3.3f", e);
+            // printf("   integralSum: %3.3f", integralSum);
+            printf("   u: %3.3f", controlAction);
+            if(abs(controlAction) < 0.02){ // input protection for servo motor
+                float percent_change = ((center+controlAction)-servo.read())/servo.read();
+                printf("    percent change: %3.3f", percent_change);
+                if (abs(percent_change) > control_threshold){
+                    servo.write(center+controlAction); // Only implements new control action if percent change is above control threshold
+                }
+            }
+            else{
+                control_output.write(0);
+                controlAction = controlAction/controlAction*0.02;
+                servo.write(center+controlAction);
+            }
+            printf("   servo position: %3.3f% \n\n", servo.read());
+            
         }
     }
-    else {
-        double sign = (controlAction > 0) - (controlAction < 0);
-        // controlAction = controlAction/controlAction*0.02;
-        controlAction = 0.02 * sign;
-        servo.write(steering_reference+controlAction);
-    }
-    printf("   servo position: %3.3f% \n\n", servo.read());
-
-   // Save the current error as the prior for the next loop
-   error_prior = error_current;
-}
-
-int main(){
-
-    if (programRunning) {
-        printf("Button pressed! Starting program...\n");
-        // Turn motor on
-    } else {
-        printf("Button pressed! Stopping program...\n");
-        // Turn motor off
-    }
-   Ticker control_ticker;
-   control_ticker.attach(&controlUpdate, DT);
-
 }
