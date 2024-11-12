@@ -1,0 +1,90 @@
+
+#define USING_USB_CABLE //comment out when not using USB Cable
+#include "mbed.h"
+#include <cstdio>
+#include <Ticker.h>
+
+// Constants
+#define sample_time 0.001f          // 1kHz sample time
+#define KP_drv 2.665f            // Proportional gain
+#define KI_drv 1.674f             // Integral gain
+#define Vbat 9.0f           // Battery voltage
+#define targetSpeed 0.3f // Target wheel speed in rad/sec
+
+AnalogIn feedback_sensor_drv(A1);     // Sensor reading feedback
+AnalogIn referance_sensor_drv(A3);    // User input for reference signal (via potentiometer)
+PwmOut control_output_drv(D6);        // PWM output to control system
+
+float output_drv = 0;
+float bound_output_drv = 0;
+float current_speed_drv = 0;
+float error_current_drv = 0;
+
+// Function to calculate the integral term using Euler forward approximation
+float calculateIntegral_drv(float error_current_drv, float& area_prior_drv) {
+   // Integral approximation: area_current = area_prior + (error_current * DT)
+   float area_current_drv = area_prior_drv + (error_current_drv * sample_time);
+   
+   // Update the area prior variable for the next iteration
+   area_prior_drv = area_current_drv;
+   
+   return area_current_drv;
+}
+
+// Function to calculate the derivative term using a first-order Taylor series approximation
+float calculateDerivative_drv(float error_current_drv, float error_prior_drv) {
+   // Derivative approximation: (error_current - error_prior) / DT
+   return (error_current_drv - error_prior_drv) / sample_time;
+}
+
+// Function to calculate the PID output
+float calculatePIDOutput_drv(float error_current_drv, float error_prior_drv, float& area_prior_drv, float kp_drv, float ki_drv) {
+   // Calculate integral and derivative terms
+   float area_current_drv = calculateIntegral_drv(error_current_drv, area_prior_drv);
+   float error_change_drv = calculateDerivative_drv(error_current_drv, error_prior_drv);
+   
+   // PID control action: 
+   float action_drv = (kp_drv * error_current_drv) + (ki_drv * area_current_drv);
+   
+   return action_drv;
+}
+
+// Main control function called by the ticker
+void controlUpdate_drv() {
+   // Static variables to store values between function calls
+   static float area_prior_drv = 0.0f;
+   static float error_prior_drv = 0.0f;
+   
+   // Read sensor feedback and user-defined reference
+   current_speed_drv = feedback_sensor_drv.read();
+   float reference_drv = targetSpeed;
+   
+   // Calculate the current error
+   error_current_drv = reference_drv - current_speed_drv;
+   
+   // Calculate the PID controller output
+   output_drv = calculatePIDOutput_drv(error_current_drv, error_prior_drv, area_prior_drv, KP_drv, KI_drv);
+   
+   // Bound the output to the PWM range [0.0, 1.0]
+   bound_output_drv = (fmax(0.0f, fmin(output_drv, 1.0f)));
+   
+   // Set the PWM duty cycle
+   control_output_drv.write(bound_output_drv);
+   
+   // Update prior error for the next iteration
+   error_prior_drv = error_current_drv;
+}
+
+int main() {
+
+
+   while (true) {
+    controlUpdate_drv();
+    printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); 
+    printf("PI Output: %f\n", output_drv); 
+    printf("Bounded Output: %f\n", bound_output_drv);  
+    printf("Measured Speed: %f\n", current_speed_drv);
+    printf("Error: %f\n", error_current_drv); 
+ 
+    }
+}
