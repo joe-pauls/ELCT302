@@ -9,7 +9,7 @@
 #define Vbat 7.2f           // Battery voltage
 
 // Steering variables
-float KP_steering = 0.25; // Proportional Gain
+float KP_steering = 1; // Proportional Gain
 float KD_steering = 0.01; // Derivative Gain
 float KI_steering = 0; // Integral Gain
 float error_current_steering = 0; // error term
@@ -34,7 +34,7 @@ PwmOut servo(D3); // PWM output to servo
 // Driving variables
 float speed_setpoint_1 = 0.3;
 float targetSpeed = 0;   // Target wheel speed PWM
-float KP_driving = 2.665;   // Proportional gain
+float KP_driving = 1.6;   // Proportional gain
 float KI_driving = 1.674;   // Integral gain
 float KD_driving = 0;
 float output = 0;
@@ -98,8 +98,8 @@ void get_steering_feedback() {
     float right_sensor_avg = right_sensor_sum/samples + steering_bias_constant;
     printf("   left sensor: %3.3f", left_sensor_avg);
     printf("   right sensor: %3.3f", right_sensor_avg);
-    // Off track detection
-    // if(left_sensor_avg < 0.2 && right_sensor_avg < 0.2) {
+    //Off track detection
+    // if(left_sensor_avg < 0.5 && right_sensor_avg < 0.5) {
     //     programRunning = false;
     // }
 
