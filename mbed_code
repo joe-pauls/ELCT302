@@ -9,9 +9,23 @@
 #define Vbat 7.2f           // Battery voltage
 
 // Steering variables
-float KP_steering = 1; // Proportional Gain
-float KD_steering = 0.01; // Derivative Gain
-float KI_steering = 0; // Integral Gain
+int num_left_landmarks = 0;
+int num_right_landmarks = 0;
+float slowKP_steering = 0.25; // proportional gain for when speed is set to slow
+float slowKI_steering = 0.1;
+float slowKD_steering = 0;
+
+float fastKP_steering = 0.25; // proportional gain for when speed is set to fast
+float fastKI_steering = 0;
+float fastKD_steering = 0;
+
+
+// float Kcrit = 0.5;
+// float Tcrit = 2.1;
+float KP_steering = slowKP_steering;// 0.6*Kcrit; // Proportional Gain //0.25 KP and 0.01 KD are decent for strightaway
+float KI_steering = slowKI_steering; //1.2*Kcrit/Tcrit; // Integral Gain
+float KD_steering = slowKD_steering; //0.075*Kcrit*Tcrit; // Derivative Gain
+
 float error_current_steering = 0; // error term
 float feedback = 0; // feedback value from inductive sensors
 float controlAction = 0.0; // control action from steering controller
@@ -20,28 +34,32 @@ float errorChange = 0.0;
 float integralSum = 0.0; // Area prior
 float controllerOutput = 0.0;
 float reference = 0.0;
-float senSlope = 48; //13
+float senSlope = 13; //13
 float center = 0.066; // 0.066
 float control_threshold = 0.01; //0.01 percent change that must occur for steering control to implement
 float steering_bias_constant = 0; // constant that is added to the value from right inductive sensor to center the car
 
-AnalogIn inductor1(A2); // input from inductor 1
-AnalogIn inductor2(A0); // input from inductor 2
-AnalogIn detectLeft(A3);
-AnalogIn detectRight(A4);
-PwmOut servo(D3); // PWM output to servo
+DigitalIn right_bumper(D2);
+DigitalIn left_bumper(D8);
+AnalogIn inductor1(A4); // input from inductor 1 (left)
+AnalogIn inductor2(A0); // input from inductor 2 (right)
+AnalogIn detectLeft(A2);
+AnalogIn detectRight(A3);
+PwmOut servo(D5); // PWM output to servo
+DigitalOut runLED(D7); // indicator LED
 
 // Driving variables
-float speed_setpoint_1 = 0.3;
+float slowSpeed = 0.25;
+float fastSpeed = 0.35;
 float targetSpeed = 0;   // Target wheel speed PWM
-float KP_driving = 1.6;   // Proportional gain
-float KI_driving = 1.674;   // Integral gain
+float KP_driving = 2;   // Proportional gain
+float KI_driving = 0; //1.674;   // Integral gain
 float KD_driving = 0;
 float output = 0;
 float bound_output = 0;
 float current_speed = 0;
 float error_current = 0;
-float driving_bias_constant = 0.05;
+float driving_bias_constant = 0;
 
 AnalogIn driving_sensor(A5);     // Sensor reading speed feedback
 PwmOut control_output(D6);        // PWM output to control system
@@ -89,7 +107,7 @@ void get_steering_feedback() {
     // read left and right steering sensors
     float left_sensor_sum = 0;
     float right_sensor_sum = 0;
-    int samples = 10;
+    int samples = 2;
     for (int i = 0; i < samples; i++) {
         left_sensor_sum += inductor1.read();
         right_sensor_sum += inductor2.read();
@@ -99,25 +117,25 @@ void get_steering_feedback() {
     printf("   left sensor: %3.3f", left_sensor_avg);
     printf("   right sensor: %3.3f", right_sensor_avg);
     //Off track detection
-    // if(left_sensor_avg < 0.5 && right_sensor_avg < 0.5) {
-    //     programRunning = false;
-    // }
+    if(left_sensor_avg < 0.05 && right_sensor_avg < 0.05) {
+        targetSpeed = 0.0;
+        programRunning = false;
+    }
 
     feedback = (left_sensor_avg - right_sensor_avg)/senSlope;
 }
 
 void get_driving_feedback() {
-
     // read left and right steering sensors
     float tach_sum = 0;
-    int samples = 10;
+    int samples = 1;
     for (int i = 0; i < samples; i++) {
         tach_sum += driving_sensor.read();
     }
     float tach_sum_avg = tach_sum/samples;
 
     current_speed = tach_sum_avg;
-    printf("    Measured Speed: %f", current_speed);
+    printf("    Measured Speed: %f", current_speed);   
 }
 
 // Main driving function called by the ticker
@@ -130,7 +148,7 @@ void drivingUpdate() {
    float reference = targetSpeed;
    
    // Calculate the current error
-   error_current = reference - current_speed + driving_bias_constant;
+   error_current = reference - current_speed;
    
    // Calculate the PID controller output
    output = calculatePIDOutput(TI_driving, error_current, error_prior, area_prior, KP_driving, KI_driving, KD_driving);
@@ -139,7 +157,7 @@ void drivingUpdate() {
    bound_output = (fmax(0.0f, fmin(output, 1.0f)));
    
    // Set the PWM duty cycle
-   control_output.write(bound_output);
+   control_output.write(reference + bound_output);
    
    // Update prior error for the next iteration
    error_prior = error_current;
@@ -149,7 +167,7 @@ void drivingUpdate() {
 void steeringUpdate()
 {
     error_current_steering = reference - feedback;
-    if(abs(error_current_steering) < 0.01){
+    if(abs(error_current_steering) < 0.02){ // Anti-windup, reset integral term to 0 if car is in center of track
         integralSum = 0;
     }
     errorChange = (error_current_steering - previousError)/TI_steering; // Euler approximation of derivative
@@ -171,8 +189,8 @@ int main()
     Ticker steering_ticker;
     steering_ticker.attach(&steeringUpdate,TI_steering);
     // Initialize driving Ticker
-    // Ticker driving_ticker;
-    // driving_ticker.attach(&drivingUpdate, TI_driving);
+    Ticker driving_ticker;
+    driving_ticker.attach(&drivingUpdate, TI_driving);
 
     Button.fall(&onButtonPress);
 
@@ -180,46 +198,95 @@ int main()
         // Check if the button was pressed
         if (buttonPressed) {
             buttonPressed = false; // Reset the flag
+            servo.write(center);
 
             // Toggle the program running state
             programRunning = !programRunning;
 
             if (programRunning) {
                 printf("Button pressed! Starting program...\n");
-                targetSpeed = speed_setpoint_1;
+                runLED.write(1);
+                targetSpeed = slowSpeed;
                 control_output.write(targetSpeed);
             } else {
                 printf("Button pressed! Stopping program...\n");
+                runLED.write(0);
                 targetSpeed = 0.0;
                 control_output.write(0.0);
             }
+            
         }
         if (programRunning) {
+            //stop program if bumpers are pressed
+            if(left_bumper.read() == 0 || right_bumper.read() == 0){
+                targetSpeed = 0.0;
+                programRunning = false;
+            }
+            // read landmark sensors
+            float left_landmark = detectLeft.read();
+            float right_landmark = detectRight.read();
+            // both right and left landmarks are detected
+            if (left_landmark < 0.3 && right_landmark < 0.3){
+                integralSum = 0; // reset integral term to prevent windup
+                targetSpeed = fastSpeed;
+                KP_steering = fastKP_steering;
+                KI_steering = fastKI_steering;
+                KD_steering = fastKD_steering;
+                num_left_landmarks = 0;
+                num_right_landmarks = 0;
+            }
+            // only left landmark is detected
+            else if(left_landmark < 0.3){
+                integralSum = 0; // reset integral term to prevent windup
+                targetSpeed = slowSpeed;
+                KP_steering = slowKP_steering;
+                KI_steering = slowKI_steering;
+                KD_steering = slowKD_steering;
+                num_left_landmarks += 1;
+            }
+            // only right lnandmark is detected
+            else if(right_landmark < 0.3){
+                integralSum = 0; // reset integral term to prevent windup
+                targetSpeed = slowSpeed;
+                KP_steering = slowKP_steering;
+                KI_steering = slowKI_steering;
+                KD_steering = slowKD_steering;
+                num_right_landmarks += 1;
+            }
+
+            // read steering sensors
             get_steering_feedback();
+
             // read driving sensor
             get_driving_feedback();
-            drivingUpdate();
-            printf("    PI Output: %f", output); 
-            // printf("    Bounded Output: %f", bound_output);  
-            printf("    Set Speed: %f", targetSpeed);              
-            printf("    Error: %f", error_current);
+            // printf("    left bumper: %d", left_bumper.read());
+            // printf("    right bumper: %d", right_bumper.read());
             // printf("    left signal: %3.3f", detectLeft.read());
             // printf("    right signal: %3.3f", detectRight.read());
-            // printf("   error: %3.3f", e);
-            printf("   integralSum: %3.3f", integralSum);
-            printf("   u: %3.3f", controlAction);
+            // printf("    PI Output: %f", output); 
+            // printf("    Bounded Output: %f", bound_output);  
+            printf("    Set Speed: %f", targetSpeed);              
+            // printf("    Error: %f", error_current);
+            // printf("    left signal: %3.3f", detectLeft.read());
+            // printf("    right signal: %3.3f", detectRight.read());
+            printf("   error: %3.3f", error_current_steering);
+            printf("   integral Term: %3.3f", integralSum*KI_steering);
+            // printf("   u: %3.3f", controlAction);
+
             if(abs(controlAction) < 0.02){ // input protection for servo motor
                 float percent_change = ((center+controlAction)-servo.read())/servo.read();
                 printf("    percent change: %3.3f", percent_change);
-                if (abs(percent_change) > control_threshold){
-                    servo.write(center+controlAction); // Only implements new control action if percent change is above control threshold
-                }
+                servo.write(center+controlAction);
             }
             else {
                 float bounded_controlAction = (fmax(-0.02f, fmin(controlAction, 0.02f)));
                 servo.write(center+bounded_controlAction);
             }
             printf("   servo position: %3.3f \n\n", servo.read());
+             
+        }
+        else{
+            runLED.write(0);
         }
     }
 }
