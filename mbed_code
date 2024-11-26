@@ -10,18 +10,18 @@
 
 // Steering variables
 bool new_steering_update = false; // flag for recalculating steering feedback
-int num_left_landmarks = 4;
-int num_right_landmarks = 5;
+int num_left_landmarks = 0;
+int num_right_landmarks = 0;
 //First straightaway
-float Sect1KP_steering = 0.095;//0.0128; // proportional gain for when speed is set to fast
-float Sect1KI_steering = 0.0068;//0.0070;
-float Sect1KD_steering = 0.0001165;
+float Sect1KP_steering = 0.095;//0.095; // proportional gain for when speed is set to fast
+float Sect1KI_steering = 0.0048;//0.0068;
+float Sect1KD_steering = 0.0000001;
 //preliminary slow down on straight same gains
 float Sect2KP_steering = 0.095; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect2KI_steering = 0.0068; //best is ki = 0.055 and kd = 0.001 so far
 float Sect2KD_steering = 0.0001165;
 //start corner 1
-float Sect3KP_steering = 0.095; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect3KP_steering = 0.0105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect3KI_steering = 0.0085; //best is ki = 0.055 and kd = 0.001 so far
 float Sect3KD_steering = 0.000005;
 //Start hairpin
@@ -29,19 +29,19 @@ float ExtraslowKP_steering = 0.105; //0.1325; // proportional gain for when spee
 float ExtraslowKI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
 float ExtraslowKD_steering = 0.000005;
 //corner 2 out of hairpin
-float Sect4KP_steering = 0.095; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect4KP_steering = 0.0105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect4KI_steering = 0.0085; //best is ki = 0.055 and kd = 0.001 so far
 float Sect4KD_steering = 0.000005;
 //2ndStraigtaway
-float Sect5KP_steering = 0.095; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect5KP_steering = 0.075; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect5KI_steering = 0.0085; //best is ki = 0.055 and kd = 0.001 so far
 float Sect5KD_steering = 0.000005;
 //corner 3
-float Sect6KP_steering = 0.065; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect6KI_steering = 0.0065; //best is ki = 0.055 and kd = 0.001 so far
+float Sect6KP_steering = 0.0105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect6KI_steering = 0.0085; //best is ki = 0.055 and kd = 0.001 so far
 float Sect6KD_steering = 0.000005;
 // straight by power station
-float Sect7KP_steering = 0.095; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect7KP_steering = 0.055; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect7KI_steering = 0.0085; //best is ki = 0.055 and kd = 0.001 so far
 float Sect7KD_steering = 0.000005;
 
@@ -86,9 +86,10 @@ PwmOut servo(D5); // PWM output to servo
 DigitalOut runLED(D7); // indicator LED
 
 // Driving variables
+float sect2speed = 0.15;
 float slowSpeed = 0.175;
 float ExtraslowSpeed = 0.15;
-float fastSpeed = 0.25;
+float fastSpeed = 0.2;
 float targetSpeed = 0;   // Target wheel speed PWM
 float KP_driving = 2;   // Proportional gain
 float KI_driving = 1; //1.674;   // Integral gain
@@ -269,14 +270,18 @@ int main()
                 programRunning = false;
             }
             // read landmark sensors
-            float left_landmark = detectLeft.read();
+            float left_landmark = 2.25*detectLeft.read();
             float right_landmark = detectRight.read();
             // both right and left landmarks are detected
-            if(right_landmark < 0.4){
+        
+
+            if(right_landmark < 0.5){
                 num_right_landmarks += 1;
+                wait_us(100000);
             }
-            if(left_landmark < 0.4){
+            if(left_landmark < 0.1){
                 num_left_landmarks += 1;
+                wait_us(100000);
             }
 
             if ((num_left_landmarks == 0) && (num_right_landmarks == 0)){
@@ -292,7 +297,7 @@ int main()
             }
             else if(num_left_landmarks == 0 && num_right_landmarks == 1){
                 
-                targetSpeed = slowSpeed;
+                targetSpeed = sect2speed;
                  KP_steering = Sect2KP_steering;
                  KI_steering = Sect2KI_steering;
                  KD_steering = Sect2KD_steering;
@@ -346,7 +351,7 @@ int main()
                 KI_steering = Sect8KI_steering;
                 KD_steering = Sect8KD_steering;
             }
-            else if(num_left_landmarks == 6 && num_right_landmarks == 6){
+            else if(num_left_landmarks == 6 || num_right_landmarks == 6){
               targetSpeed = fastSpeed;
                 KP_steering = Sect1KP_steering;
                 KI_steering = Sect1KI_steering;
@@ -360,27 +365,12 @@ int main()
                 get_steering_feedback();
                 new_steering_update = false;
             }
-
             // read driving sensor
             get_driving_feedback();
-            // printf("    left bumper: %d", left_bumper.read());
-            // printf("    right bumper: %d", right_bumper.read());
-            // printf("    left signal: %3.3f", detectLeft.read());
-            // printf("    right signal: %3.3f", detectRight.read());
-            // printf("    PI Output: %f", output); 
-            // printf("    Bounded Output: %f", bound_output);  
-           // printf("    Set Speed: %f", targetSpeed);              
-            // printf("    Error: %f", error_current);
-            // printf("    left signal: %3.3f", detectLeft.read());
-            // printf("    right signal: %3.3f", detectRight.read());
-           // printf("   error: %3.3f", error_current_steering);
-           // printf("   integral Term: %3.3f", integralSum*KI_steering);
-           // printf("   u: %3.3f", controlAction);
-           // printf("   servo position: %3.3f \n\n", servo.read());
-             
-        }
-        else{
-            runLED.write(0);
+             printf(" left signal: %3.3f \n", detectLeft.read());
+             printf("    right signal: %3.3f \n", detectRight.read());
+             printf(" -------------landmark right: %d \n", num_right_landmarks);
+             printf(" -------------landmark left: %d \n", num_left_landmarks);
         }
     }
 }
