@@ -274,20 +274,22 @@ int main()
             float left_landmark = detectLeft.read();
             float right_landmark = detectRight.read();
 
-            // check if landmark is detected, if so, set landmark_detected to true until a landmark is no longer detected
-            if(right_landmark < 0.4 || left_landmark < 0.4){
-                landmark_detected = true;
-            }
-            else{
+            // if both sensors don't detect a landmark, set landmark_detected to false
+            if (right_landmark > 0.5 && left_landmark > 0.5){
                 landmark_detected = false;
             }
-            // increment landmark counters if landmark is detected
-            if(right_landmark < 0.4 && landmark_detected == true){
-                num_right_landmarks += 1;
-            }
-            if(left_landmark < 0.4 && landmark_detected == true){
-                num_left_landmarks += 1;
-            }
+            // check if landmark is currently detected, if not, check both right and left landmarks
+            if (landmark_detected == false){
+                // increment landmark counters if landmark is detected, but only if landmark was not previously detected
+                if(right_landmark < 0.4){
+                    num_right_landmarks += 1;
+                    landmark_detected = true;
+                }
+                if(left_landmark < 0.4){
+                    num_left_landmarks += 1;
+                    landmark_detected = true;
+                }
+                
             }
             
 
