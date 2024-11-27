@@ -153,8 +153,8 @@ void get_steering_feedback() {
     }
     float left_sensor_avg = sqrt(left_sensor_sum/samples); // using square root but it lowkey works better by weighting further distances higher and reducing drastic dropoff
     float right_sensor_avg = sqrt(right_sensor_sum/samples);
-   // printf("   left sensor: %3.3f", left_sensor_avg);
-   // printf("   right sensor: %3.3f", right_sensor_avg);
+   printf("   left sensor: %3.3f\n", left_sensor_avg);
+   printf("   right sensor: %3.3f\n", right_sensor_avg);
    // printf("    error: %3.3f", left_sensor_avg-right_sensor_avg);
     //Off track detection
     if(left_sensor_avg < 0.05 && right_sensor_avg < 0.05) {
@@ -257,6 +257,8 @@ int main()
                 control_output.write(targetSpeed);
             } else {
                 printf("Button pressed! Stopping program...\n");
+                num_left_landmarks = num_left_landmarks; //when stopped sets to initialized value? Before adding, somtimes started on last value it was on
+                num_right_landmarks = num_right_landmarks; //when stopped sets to initialized value? Before adding, somtimes started on last value it was on
                 runLED.write(0);
                 targetSpeed = 0.0;
                 control_output.write(0.0);
@@ -360,7 +362,7 @@ int main()
                 KI_steering = Sect8KI_steering;
                 KD_steering = Sect8KD_steering;
             }
-            else if(num_left_landmarks == 6 && num_right_landmarks == 6){
+            else if(num_left_landmarks == 6 || num_right_landmarks == 6){ //using ||, when taking curve helps as both sensors may not be read at the same time.
               targetSpeed = fastSpeed;
                 KP_steering = Sect1KP_steering;
                 KI_steering = Sect1KI_steering;
@@ -374,7 +376,8 @@ int main()
                 get_steering_feedback();
                 new_steering_update = false;
             }
-
+            printf("L landmark count: %d\n", num_left_landmarks);
+            printf("R landmark count: %d\n", num_right_landmarks);
             // read driving sensor
             get_driving_feedback();
             // printf("    left bumper: %d", left_bumper.read());
@@ -391,6 +394,8 @@ int main()
            // printf("   integral Term: %3.3f", integralSum*KI_steering);
            // printf("   u: %3.3f", controlAction);
            // printf("   servo position: %3.3f \n\n", servo.read());
+
+             
              
         }
         else{
