@@ -13,16 +13,16 @@ bool new_steering_update = false; // flag for recalculating steering feedback
 bool left_landmark_detected = false;
 bool right_landmark_detected = false;
 
-//First straightaway (left = 0, right = 0)
-float Sect1_speed = 0.16;
-float Sect1KP_steering = 0.06;
-float Sect1KI_steering = 0.008;
-float Sect1KD_steering = 0.00001;
+//First straightaway (left = 0, right = 0) ((longest)
+float Sect1_speed = 0.17;
+float Sect1KP_steering = 0.001;
+float Sect1KI_steering = 0.0575;
+float Sect1KD_steering = 0.00033; // decrease Kd
 
 //preliminary slow down on straight same gains (left = 0, right = 1)
-float Sect2_speed = 0.16;
-float Sect2KP_steering = 0.06;
-float Sect2KI_steering = 0.008;
+float Sect2_speed = 0.12;
+float Sect2KP_steering = 0.055;
+float Sect2KI_steering = 0.002;
 float Sect2KD_steering = 0.0;
 
 //start corner 1 (left = 1, right = 1)
@@ -51,7 +51,7 @@ float Sect4KD_steering = 0.00003;
 
 //2ndStraigtaway (left = 3, right = 4)
 float Sect5_speed = 0.16;
-float Sect5KP_steering = 0.04; 
+float Sect5KP_steering = 0.0375; 
 float Sect5KI_steering = 0.0; 
 float Sect5KD_steering = 0.000005;
 
@@ -340,7 +340,7 @@ void landmarkUpdate()
             KD_steering = Sect8KD_steering;
         }
         //First straightaway reset (left = 6, right = 6)
-        else if(num_left_landmarks == 6 && num_right_landmarks == 6){
+        else if(num_left_landmarks == 6 || num_right_landmarks == 6){
             center = 0.066;
             steering_bias_constant = 0.0;
             num_left_landmarks = 0;
