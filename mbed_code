@@ -5,7 +5,7 @@
 #include <Ticker.h>
 
 #define TI_driving 0.001f          // 1kHz sample time
-#define TI_steering 0.02f   // 50 Hz sample time
+#define TI_steering 0.005f   // 50 Hz sample time
 #define Vbat 7.2f           // Battery voltage
 
 // Steering variables
@@ -14,68 +14,62 @@ bool left_landmark_detected = false;
 bool right_landmark_detected = false;
 
 //First straightaway (left = 0, right = 0)
-float Sect1_speed = 0.25;
+float Sect1_speed = 0.16;
 float Sect1KP_steering = 0.06;
-float Sect1KI_steering = 0.0;
-float Sect1KD_steering = 0.000001;
+float Sect1KI_steering = 0.008;
+float Sect1KD_steering = 0.00001;
 
 //preliminary slow down on straight same gains (left = 0, right = 1)
-float Sect2_speed = 0.0;
-float Sect2KP_steering = 0.14;
-float Sect2KI_steering = 0.0068;
+float Sect2_speed = 0.16;
+float Sect2KP_steering = 0.06;
+float Sect2KI_steering = 0.008;
 float Sect2KD_steering = 0.0;
 
 //start corner 1 (left = 1, right = 1)
-float Sect3_speed = 0.15;
-float Sect3KP_steering = 0.05;
-float Sect3KI_steering = 0.003;
+float Sect3_speed = 0.14;
+float Sect3KP_steering = 0.085;
+float Sect3KI_steering = 0.009;
 float Sect3KD_steering = 0.00001;
-
-//second half of corner 1 (left = 1, right = 2)
-float Sect35_speed = 0.15;
-float Sect35KP_steering = 0.055;
-float Sect35KI_steering = 0.002;
-float Sect35KD_steering = 0.00001;
 
 //Start hairpin (left = 1, right = 3)
 float Hairpin1_speed = 0.15;
-float Hairpin1KP_steering = 0.075;
+float Hairpin1KP_steering = 0.077;
 float Hairpin1KI_steering = 0.01; 
 float Hairpin1KD_steering = 0.000005;
 
 // second half of hairpin (left = 2, right = 3)
 float Hairpin2_speed = 0.15;
-float Hairpin2KP_steering = 0.0985;
+float Hairpin2KP_steering = 0.099;
 float Hairpin2KI_steering = 0.02; 
 float Hairpin2KD_steering = 0.00000005025;
 
 //corner 2 out of hairpin (left = 3, right = 3)
-float Sect4_speed = 0.15;
-float Sect4KP_steering = 0.123; 
-float Sect4KI_steering = 0.0065; 
-float Sect4KD_steering = 0.00001;
+float Sect4_speed = 0.14;
+float Sect4KP_steering = 0.091; 
+float Sect4KI_steering = 0.0; 
+float Sect4KD_steering = 0.00003;
 
 //2ndStraigtaway (left = 3, right = 4)
-float Sect5_speed = 0.175;
-float Sect5KP_steering = 0.025; 
-float Sect5KI_steering = 0.007; 
+float Sect5_speed = 0.16;
+float Sect5KP_steering = 0.04; 
+float Sect5KI_steering = 0.0; 
 float Sect5KD_steering = 0.000005;
 
 //corner 3 (left = 4, right = 4)
-float Sect6_speed = 0.15;
+float Sect6_speed = 0.12;
 float Sect6KP_steering = 0.12; 
-float Sect6KI_steering = 0.0065; 
+float Sect6KI_steering = 0.0; 
 float Sect6KD_steering = 0.00001;
 
 // straight by power station (left = 4, right = 5)
-float Sect7_speed = 0.125;
-float Sect7KP_steering = 0.14; 
-float Sect7KI_steering = 0.05; 
+float Sect7_speed = 0.15;
+float Sect7KP_steering = 0.105; 
+float Sect7KI_steering = 0.007; 
 float Sect7KD_steering = 0.000005;
 
 // turn right before double tape (left = 5, right = 5)
-float Sect8_speed = 0.125;
-float Sect8KP_steering = 0.135; 
+float Sect8_speed = 0.15;
+float Sect8KP_steering = 0.09; 
 float Sect8KI_steering = 0.0085;
 float Sect8KD_steering = 0.000005;
 
@@ -114,7 +108,7 @@ AnalogIn detectRight(A3);
 PwmOut servo(D5); // PWM output to servo
 DigitalOut runLED(D7); // indicator LED
 DigitalOut landmarkLED(D4); // turns on and off each section to indicate landmark detection is working
-DigitalOut brakeCircuit(D3); // opens N channel mosfet to divert power from motor and brake quickly
+PwmOut brakeCircuit(D3); // opens N channel mosfet to divert power from motor and brake quickly
 
 // Driving variables
 float slowSpeed = 0.175;
@@ -176,7 +170,7 @@ void get_steering_feedback() {
     // read left and right steering sensors
     float left_sensor_sum = 0;
     float right_sensor_sum = 0;
-    int samples = 5;
+    int samples = 15;
     for (int i = 0; i < samples; i++) {
         left_sensor_sum += inductor1.read();
         right_sensor_sum += inductor2.read();
@@ -187,11 +181,11 @@ void get_steering_feedback() {
    printf("   right sensor: %3.3f", right_sensor_avg);
    printf("    error: %3.3f\n", left_sensor_avg-right_sensor_avg);
     //Off track detection
-    if(left_sensor_avg - steering_bias_constant < 0.025 && right_sensor_avg < 0.025) {
+    if(left_sensor_avg - steering_bias_constant < 0.005 && right_sensor_avg < 0.05) {
         targetSpeed = 0.0;
         programRunning = false;
         printf("Off track! Stopping program...\n");
-        brakeCircuit.write(1);
+        brakeCircuit.write(1.0);
     }
 
     feedback = (left_sensor_avg - right_sensor_avg)/senSlope;
@@ -266,7 +260,8 @@ void landmarkUpdate()
         }
         //preliminary slow down on straight same gains (left = 0, right = 1)
         else if(num_left_landmarks == 0 && num_right_landmarks == 1){
-            brakeCircuit.write(1);
+            // targetSpeed = 0;
+            // brakeCircuit.write(1.0);
             targetSpeed = Sect2_speed;
             KP_steering = Sect2KP_steering;
             KI_steering = Sect2KI_steering;
@@ -274,26 +269,17 @@ void landmarkUpdate()
         }
         //start corner 1 (left = 1, right = 1)
         else if(num_left_landmarks == 1 && num_right_landmarks == 1){
-            center = 0.07;
             brakeCircuit.write(0);
-            //steering_bias_constant = -0.1;
+            landmarkLED.write(1);
+            center = 0.071;
             targetSpeed = Sect3_speed;
             KP_steering = Sect3KP_steering;
             KI_steering = Sect3KI_steering;
             KD_steering = Sect3KD_steering;
         }
-        //second half of corner 1 (left = 1, right = 2)
-        else if(num_left_landmarks == 1 && num_right_landmarks == 2){
-            center = 0.07;
-            //steering_bias_constant = -0.1;
-            targetSpeed = Sect35_speed;
-            KP_steering = Sect35KP_steering;
-            KI_steering = Sect35KI_steering;
-            KD_steering = Sect35KD_steering;
-        }
         //Start hairpin (left = 1, right = 3)
         else if(num_left_landmarks == 1 && num_right_landmarks == 3){
-            steering_bias_constant = -0.2;
+            steering_bias_constant = -0.25;
             targetSpeed = Hairpin1_speed;
             KP_steering = Hairpin1KP_steering;
             KI_steering = Hairpin1KI_steering;
@@ -301,7 +287,7 @@ void landmarkUpdate()
         }
         // second half of hairpin (left = 2, right = 3)
         else if(num_left_landmarks == 2 && num_right_landmarks == 3){
-            integralSum = 0; // reset integral for changing direction of turn
+            // integralSum = 0; // reset integral for changing direction of turn
             center = 0.064;
             steering_bias_constant = 0.2;
             targetSpeed = Hairpin2_speed;
@@ -312,7 +298,7 @@ void landmarkUpdate()
         //corner 2 out of hairpin (left = 3, right = 3)
         else if(num_left_landmarks == 3 && num_right_landmarks == 3){
             center = 0.066;
-            steering_bias_constant = 0.2;
+            steering_bias_constant = 0;
             targetSpeed = Sect4_speed;
             KP_steering = Sect4KP_steering;
             KI_steering = Sect4KI_steering;
@@ -320,8 +306,9 @@ void landmarkUpdate()
         }
         //2ndStraigtaway (left = 3, right = 4)
         else if(num_left_landmarks == 3 && num_right_landmarks == 4){
-            landmarkLED.write(1);
-            steering_bias_constant = 0.2;
+            integralSum = 0; // reset integral term
+            center = 0.066;
+            steering_bias_constant = 0.0;
             targetSpeed = Sect5_speed;
             KP_steering = Sect5KP_steering;
             KI_steering = Sect5KI_steering;
@@ -329,7 +316,7 @@ void landmarkUpdate()
         }
         //corner 3 (left = 4, right = 4)
         else if(num_left_landmarks == 4 && num_right_landmarks == 4){
-            steering_bias_constant = 0;
+            
             targetSpeed = Sect6_speed;
             KP_steering = Sect6KP_steering;
             KI_steering = Sect6KI_steering;
@@ -337,6 +324,7 @@ void landmarkUpdate()
         }
         // straight by power station (left = 4, right = 5)
         else if(num_left_landmarks == 4 && num_right_landmarks == 5){
+            
             targetSpeed = Sect7_speed;
             KP_steering = Sect7KP_steering;
             KI_steering = Sect7KI_steering;
@@ -344,6 +332,8 @@ void landmarkUpdate()
         }
         // turn right before double tape (left = 5, right = 5)
         else if(num_left_landmarks == 5 && num_right_landmarks == 5){
+            steering_bias_constant = 0.2;
+            center = 0.071;
             targetSpeed = Sect8_speed;
             KP_steering = Sect8KP_steering;
             KI_steering = Sect8KI_steering;
@@ -351,6 +341,8 @@ void landmarkUpdate()
         }
         //First straightaway reset (left = 6, right = 6)
         else if(num_left_landmarks == 6 && num_right_landmarks == 6){
+            center = 0.066;
+            steering_bias_constant = 0.0;
             num_left_landmarks = 0;
             num_right_landmarks = 0;
             targetSpeed = Sect1_speed;
@@ -378,7 +370,7 @@ int main()
     driving_ticker.attach(&drivingUpdate, TI_driving);
     // Initialize landmark detection ticker
     Ticker landmark_ticker;
-    landmark_ticker.attach(&landmarkUpdate, 1ms);
+    landmark_ticker.attach(&landmarkUpdate, TI_steering);
 
     Button.fall(&onButtonPress);
 
@@ -395,14 +387,12 @@ int main()
                 printf("Button pressed! Starting program...\n");
                 runLED.write(1);
                 targetSpeed = slowSpeed;
-                control_output.write(targetSpeed);
                 brakeCircuit.write(0);
             } else {
                 printf("Button pressed! Stopping program...\n");
                 runLED.write(0);
                 targetSpeed = 0.0;
-                control_output.write(0.0);
-                brakeCircuit.write(1);
+                brakeCircuit.write(1.0);
             }
             
         }
@@ -438,8 +428,8 @@ int main()
                 
             }
 
-            printf("    left signal: %3.3f", detectLeft.read());
-            printf("    right signal: %3.3f", detectRight.read());
+            // printf("    left signal: %3.3f", detectLeft.read());
+            // printf("    right signal: %3.3f", detectRight.read());
             // printf("    Left Landmark Count: %d", num_left_landmarks);
             // printf("    Right Landmark Count: %d\n", num_right_landmarks);
             
