@@ -12,22 +12,24 @@
 bool new_steering_update = false; // flag for recalculating steering feedback
 bool landmark_detected = false;
 
-float slowSpeed = 0.15;
-float ExtraslowSpeed = 0.13;
-float fastSpeed = 0.1625;
+float slowSpeed = 0.155;
+float ExtraslowSpeed = 0.135;
+float ExtraslowSpeed2 = 0.1;
+float fastSpeed = 0.2;
+float fastSpeed2 = 0.17;
 
 float ExtraslowKP_steering = 0.09; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float ExtraslowKI_steering = 0.01; //best is ki = 0.055 and kd = 0.001 so far
 float ExtraslowKD_steering = 0.000005;
 
 //First straightaway
-float Sect1KP_steering = 0.105;//0.0128; // proportional gain for when speed is set to fast
-float Sect1KI_steering = 0.008;//0.0070;
+float Sect1KP_steering = 0.075;//0.0128; // proportional gain for when speed is set to fast
+float Sect1KI_steering = 0.004;//0.0070;
 float Sect1KD_steering = 0.000005;
 //preliminary slow down on straight same gains
-float Sect2KP_steering = 0.105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect2KI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
-float Sect2KD_steering = 0.000005;
+float Sect2KP_steering = 0.05; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect2KI_steering = 0.001; //best is ki = 0.055 and kd = 0.001 so far
+float Sect2KD_steering = 0.0;
 //start corner 1
 float Sect3KP_steering = 0.105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect3KI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
@@ -63,12 +65,12 @@ float Sect8KD_steering = 0.000005;
 ////////////////////////////////////////////////////////////////////
 ////////////////////*INITIALIZE VARIABLES*//////////////////////////
 // initialize positioning on track
-int num_landmarks = 4;
+int num_landmarks = 0;
 // set initial speed and gains for section three (after the straightaway)
-float initialSpeed = ExtraslowSpeed;
-float KP_steering = Sect3KP_steering; 
-float KI_steering = Sect3KI_steering; 
-float KD_steering = Sect3KD_steering; 
+float initialSpeed = fastSpeed;
+float KP_steering = Sect1KP_steering; 
+float KI_steering = Sect1KI_steering; 
+float KD_steering = Sect1KD_steering; 
 
 
 // float Kcrit = 0.5;
@@ -251,13 +253,15 @@ void landmarkUpdate()
             }
             else if(num_landmarks == 1){
                 landmarkLED.write(1);
-                targetSpeed = ExtraslowSpeed;
+                targetSpeed = 0;
+                brakeCircuit.write(1);
                  KP_steering = Sect2KP_steering;
                  KI_steering = Sect2KI_steering;
                  KD_steering = Sect2KD_steering;
             }
             else if(num_landmarks == 2){
                 landmarkLED.write(0);
+                brakeCircuit.write(0);
                 targetSpeed = slowSpeed;
                  KP_steering = Sect3KP_steering;
                  KI_steering = Sect3KI_steering;
@@ -290,7 +294,7 @@ void landmarkUpdate()
             }
             else if(num_landmarks == 7){
                 landmarkLED.write(1);
-                targetSpeed = fastSpeed;
+                targetSpeed = fastSpeed2;
                 KP_steering = Sect5KP_steering;
                 KI_steering = Sect5KI_steering;
                 KD_steering = Sect5KD_steering;
