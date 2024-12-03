@@ -12,34 +12,34 @@
 bool new_steering_update = false; // flag for recalculating steering feedback
 bool landmark_detected = false;
 
-float slowSpeed = 0.155;
-float ExtraslowSpeed = 0.135;
-float ExtraslowSpeed2 = 0.1;
+float slowSpeed = 0.17;
+float slowSpeed2 = 0.16;
+float slowSpeed3 = 0.16;
 float fastSpeed = 0.2;
-float fastSpeed2 = 0.17;
+float fastSpeed2 = 0.185; // could be slightly faster
 
 float ExtraslowKP_steering = 0.09; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float ExtraslowKI_steering = 0.01; //best is ki = 0.055 and kd = 0.001 so far
 float ExtraslowKD_steering = 0.000005;
 
 //First straightaway
-float Sect1KP_steering = 0.075;//0.0128; // proportional gain for when speed is set to fast
-float Sect1KI_steering = 0.004;//0.0070;
-float Sect1KD_steering = 0.000005;
+float Sect1KP_steering = 0.07;//0.045; // proportional gain for when speed is set to fast
+float Sect1KI_steering = 0.004;//0.008;
+float Sect1KD_steering = 0.000003;
 //preliminary slow down on straight same gains
 float Sect2KP_steering = 0.05; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect2KI_steering = 0.001; //best is ki = 0.055 and kd = 0.001 so far
 float Sect2KD_steering = 0.0;
 //start corner 1
-float Sect3KP_steering = 0.105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect3KI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
+float Sect3KP_steering = 0.115; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect3KI_steering = 0.0085; //best is ki = 0.055 and kd = 0.001 so far
 float Sect3KD_steering = 0.000005;
 //Start hairpin
 // float ExtraslowKP_steering = 0.105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 // float ExtraslowKI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
 // float ExtraslowKD_steering = 0.000005;
 //corner 2 out of hairpin
-float Sect4KP_steering = 0.105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect4KP_steering = 0.12; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect4KI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
 float Sect4KD_steering = 0.000005;
 //2ndStraigtaway
@@ -47,17 +47,17 @@ float Sect5KP_steering = 0.105; //0.1325; // proportional gain for when speed is
 float Sect5KI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
 float Sect5KD_steering = 0.000005;
 //corner 3
-float Sect6KP_steering = 0.105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect6KI_steering = 0.002; //best is ki = 0.055 and kd = 0.001 so far
-float Sect6KD_steering = 0.000;
+float Sect6KP_steering = 0.125; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect6KI_steering = 0.004; //best is ki = 0.055 and kd = 0.001 so far
+float Sect6KD_steering = 0.000005;
 // straight by power station
-float Sect7KP_steering = 0.115; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect7KI_steering = 0.004; //best is ki = 0.055 and kd = 0.001 so far
-float Sect7KD_steering = 0.000;
+float Sect7KP_steering = 0.15; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect7KI_steering = 0.0055; //best is ki = 0.055 and kd = 0.001 so far
+float Sect7KD_steering = 0.000002;
 
-float Sect8KP_steering = 0.105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect8KI_steering = 0.0085; //best is ki = 0.055 and kd = 0.001 so far
-float Sect8KD_steering = 0.000005;
+float Sect8KP_steering = 0.12; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect8KI_steering = 0.01; //best is ki = 0.055 and kd = 0.001 so far
+float Sect8KD_steering = 0.0;
 // float slowKP_steering = 0.075; // proportional gain for when speed is set to slow
 // float slowKI_steering = 0.05;
 // float slowKD_steering = 0.0001;
@@ -103,7 +103,7 @@ PwmOut brakeCircuit(D3); // opens N channel mosfet to divert power from motor an
 
 // Driving variables
 float targetSpeed = 0;   // Target wheel speed PWM
-float KP_driving = 2;   // Proportional gain
+float KP_driving = 2.5;   // Proportional gain
 float KI_driving = 1; //1.674;   // Integral gain
 float KD_driving = 0;
 float output = 0;
@@ -262,7 +262,7 @@ void landmarkUpdate()
             else if(num_landmarks == 2){
                 landmarkLED.write(0);
                 brakeCircuit.write(0);
-                targetSpeed = slowSpeed;
+                targetSpeed = slowSpeed2;
                  KP_steering = Sect3KP_steering;
                  KI_steering = Sect3KI_steering;
                  KD_steering = Sect3KD_steering;
@@ -308,7 +308,7 @@ void landmarkUpdate()
             }
             else if(num_landmarks == 9){
                 landmarkLED.write(1);
-                targetSpeed = slowSpeed;
+                targetSpeed = slowSpeed3;
                 KP_steering = Sect7KP_steering;
                 KI_steering = Sect7KI_steering;
                 KD_steering = Sect7KD_steering;
