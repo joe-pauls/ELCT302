@@ -12,15 +12,15 @@
 bool new_steering_update = false; // flag for recalculating steering feedback
 bool landmark_detected = false;
 
-float slowSpeed = 0.185;
-float slowSpeed2 = 0.16;
-float slowSpeed3 = 0.16;
-float fastSpeed = 0.215;
-float fastSpeed2 = 0.1875; // 2nd straightaway
+float slowSpeed = 0.205; // by power station
+float slowSpeed2 = 0.22; // for big turn
+float fastSpeed = 0.205;
+float fastSpeed2 = 0.215; // 2nd straightaway
+float fastSpeed3 = 0.215;
 
 
 //First straightaway
-float Sect1KP_steering = 0.0475;//0.045; // proportional gain for when speed is set to fast
+float Sect1KP_steering = 0.065;//0.045; // proportional gain for when speed is set to fast
 float Sect1KI_steering = 0.07;//0.008;
 float Sect1KD_steering = 0.000003;
 //preliminary slow down on straight same gains
@@ -28,31 +28,31 @@ float Sect2KP_steering = 0.04; //0.1325; // proportional gain for when speed is 
 float Sect2KI_steering = 0.001; //best is ki = 0.055 and kd = 0.001 so far
 float Sect2KD_steering = 0.0;
 //start corner 1
-float Sect3KP_steering = 0.115; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect3KI_steering = 0.0085; //best is ki = 0.055 and kd = 0.001 so far
+float Sect3KP_steering = 0.13; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect3KI_steering = 0.05; //best is ki = 0.055 and kd = 0.001 so far
 float Sect3KD_steering = 0.000005;
 //Start hairpin (first and second half)
-float ExtraslowKP_steering = 0.12; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float ExtraslowKI_steering = 0.01; //best is ki = 0.055 and kd = 0.001 so far
+float ExtraslowKP_steering = 0.14; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float ExtraslowKI_steering = 0.05; //best is ki = 0.055 and kd = 0.001 so far
 float ExtraslowKD_steering = 0.000005;
 //corner 2 out of hairpin
-float Sect4KP_steering = 0.12; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect4KI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
+float Sect4KP_steering = 0.143; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect4KI_steering = 0.005; //best is ki = 0.055 and kd = 0.001 so far
 float Sect4KD_steering = 0.000005;
 //2ndStraigtaway
-float Sect5KP_steering = 0.105; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect5KI_steering = 0.008; //best is ki = 0.055 and kd = 0.001 so far
-float Sect5KD_steering = 0.000005;
+float Sect5KP_steering = 0.065; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect5KI_steering = 0.07; //best is ki = 0.055 and kd = 0.001 so far
+float Sect5KD_steering = 0.000003;
 //corner 3
-float Sect6KP_steering = 0.125; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect6KI_steering = 0.004; //best is ki = 0.055 and kd = 0.001 so far
-float Sect6KD_steering = 0.000005;
+float Sect6KP_steering = 0.143; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect6KI_steering = 0.003; //best is ki = 0.055 and kd = 0.001 so far
+float Sect6KD_steering = 0.00001;
 // straight by power station
-float Sect7KP_steering = 0.145; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect7KI_steering = 0.0055; //best is ki = 0.055 and kd = 0.001 so far
+float Sect7KP_steering = 0.15; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect7KI_steering = 0.01; //best is ki = 0.055 and kd = 0.001 so far
 float Sect7KD_steering = 0.000002;
 
-float Sect8KP_steering = 0.12; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect8KP_steering = 0.15; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect8KI_steering = 0.01; //best is ki = 0.055 and kd = 0.001 so far
 float Sect8KD_steering = 0.0;
 // float slowKP_steering = 0.075; // proportional gain for when speed is set to slow
@@ -166,7 +166,7 @@ void get_steering_feedback() {
    // printf("   right sensor: %3.3f", right_sensor_avg);
    // printf("    error: %3.3f", left_sensor_avg-right_sensor_avg);
     //Off track detection
-    if(left_sensor_avg - steering_bias_constant < 0.005 && right_sensor_avg < 0.005) {
+    if(left_sensor_avg - steering_bias_constant < 0.05 && right_sensor_avg < 0.05) {
         targetSpeed = 0.0;
         programRunning = false;
     }
@@ -236,45 +236,26 @@ void landmarkUpdate()
 {
     if (programRunning){
         //First straightaway (left = 0, right = 0)
-        static bool really_straight = false;
-        static int counts = 0;
             if (num_landmarks == 0){
-                if (feedback < 0.0001){
-                    counts += 1;
-                }
-                if (counts > 300){
-                    really_straight = true;
-                }
-                else {
-                    really_straight = false;
-                }
-                if (really_straight == false){
-                    targetSpeed = 0.15;
-                    KP_steering = 0.12;
-                    KI_steering = 0.08;
-                    KD_steering = 0;
-                    landmarkLED.write(0);
-                }
-                else {
-                    landmarkLED.write(1);
-                    KP_driving = 5;
+                    // integralSum = 0; // reset integral term to prevent windup
                     targetSpeed = fastSpeed;
-                    KP_steering = 0.025;
-                    KI_steering = 0.05;
-                    KD_steering = 0;
-                }
+                    KP_steering = Sect1KP_steering;
+                    KI_steering = Sect1KI_steering;
+                    KD_steering = Sect1KD_steering;
+                    landmarkLED.write(0);
+                
             }
             else if(num_landmarks == 1){
-                KD_driving = 3.1;
-                counts = 0;
-                landmarkLED.write(0);
-                targetSpeed = 0;
-                brakeCircuit.write(1);
+                landmarkLED.write(1);
+                targetSpeed = slowSpeed2;
+                center = 0.066;
+                // brakeCircuit.write(1);
                  KP_steering = Sect2KP_steering;
                  KI_steering = Sect2KI_steering;
                  KD_steering = Sect2KD_steering;
             }
             else if(num_landmarks == 2){
+                center = 0.071;
                 landmarkLED.write(0);
                 brakeCircuit.write(0);
                 targetSpeed = slowSpeed2;
@@ -282,11 +263,19 @@ void landmarkUpdate()
                  KI_steering = Sect3KI_steering;
                  KD_steering = Sect3KD_steering;
             }
+            // second half of first corner
+            else if(num_landmarks == 3){
+                center = 0.071;
+                targetSpeed = slowSpeed2;
+                KP_steering = Sect3KP_steering;
+                KI_steering = Sect3KI_steering;
+                KD_steering = Sect3KD_steering;
+            }
             //Start of hairpin
             else if(num_landmarks == 4){
                 landmarkLED.write(1);
-                center = 0.07;
-                targetSpeed = slowSpeed;
+                center = 0.071;
+                targetSpeed = fastSpeed3;
                  KP_steering = ExtraslowKP_steering;
                  KI_steering = ExtraslowKI_steering;
                  KD_steering = ExtraslowKD_steering;
@@ -295,11 +284,12 @@ void landmarkUpdate()
             else if(num_landmarks == 5){
                 landmarkLED.write(1);
                 center = 0.064;
-                targetSpeed = slowSpeed;
+                targetSpeed = fastSpeed3;
                  KP_steering = ExtraslowKP_steering;
                  KI_steering = ExtraslowKI_steering;
                  KD_steering = ExtraslowKD_steering;
             }
+            // corner out of hairpin
             else if(num_landmarks == 6){
                 landmarkLED.write(0);
                 center = 0.066;
@@ -323,16 +313,17 @@ void landmarkUpdate()
                 KI_steering = Sect6KI_steering;
                 KD_steering = Sect6KD_steering;
             }
+            // corner then straight by power station
             else if(num_landmarks == 9){
                 landmarkLED.write(0);
-                steering_bias_constant = -0.1;
-                targetSpeed = slowSpeed3;
+                targetSpeed = slowSpeed;
                 KP_steering = Sect7KP_steering;
                 KI_steering = Sect7KI_steering;
                 KD_steering = Sect7KD_steering;
             }
             else if(num_landmarks == 10){
                 landmarkLED.write(1);
+                center = 0.068;
                 targetSpeed = slowSpeed;
                 KP_steering = Sect8KP_steering;
                 KI_steering = Sect8KI_steering;
@@ -340,6 +331,7 @@ void landmarkUpdate()
             }
             else if(num_landmarks == 11 || num_landmarks == 12){
                 landmarkLED.write(0);
+                center = 0.066;
               targetSpeed = fastSpeed;
                 KP_steering = Sect1KP_steering;
                 KI_steering = Sect1KI_steering;
@@ -418,10 +410,11 @@ int main()
             
             
             // read steering sensors
-            if (new_steering_update == true){
-                get_steering_feedback();
-                new_steering_update = false;
-            }
+            // if (new_steering_update == true){
+            //     get_steering_feedback();
+            //     new_steering_update = false;
+            // }
+            get_steering_feedback();
 
             // read driving sensor
             get_driving_feedback();
