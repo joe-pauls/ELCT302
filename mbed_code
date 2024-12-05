@@ -12,11 +12,11 @@
 bool new_steering_update = false; // flag for recalculating steering feedback
 bool landmark_detected = false;
 
-float slowSpeed = 0.22; // by power station
-float slowSpeed2 = 0.23; // for big turn
-float fastSpeed = 0.24; // for main straightaway
-float fastSpeed2 = 0.23; // 2nd straightaway
-float fastSpeed3 = 0.22; // hairpin
+float slowSpeed = 0.25; // by power station
+float slowSpeed2 = 0.25; // for big turn
+float fastSpeed = 0.242; // for main straightaway
+float fastSpeed2 = 0.245; // 2nd straightaway
+float fastSpeed3 = 0.25; // hairpin
 
 
 //First straightaway
@@ -33,26 +33,26 @@ float Sect3KI_steering = 0.2; //best is ki = 0.055 and kd = 0.001 so far
 float Sect3KD_steering = 0.00000;
 //Start hairpin (first and second half)
 float ExtraslowKP_steering = 0.17; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float ExtraslowKI_steering = 0.2; //best is ki = 0.055 and kd = 0.001 so far
+float ExtraslowKI_steering = 0.05; //best is ki = 0.055 and kd = 0.001 so far
 float ExtraslowKD_steering = 0.0;
 //corner 2 out of hairpin
 float Sect4KP_steering = 0.17; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect4KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
 float Sect4KD_steering = 0.0;
 //2ndStraigtaway
-float Sect5KP_steering = 0.14; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect5KP_steering = 0.127; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect5KI_steering = 0.8; //best is ki = 0.055 and kd = 0.001 so far
 float Sect5KD_steering = 0.0;//0.000012;
 //corner 3
-float Sect6KP_steering = 0.16; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect6KP_steering = 0.15; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect6KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
 float Sect6KD_steering = 0.0;
 // straight by power station
-float Sect7KP_steering = 0.165; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect7KP_steering = 0.15; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect7KI_steering = 0.6; //best is ki = 0.055 and kd = 0.001 so far
 float Sect7KD_steering = 0.0;
 
-float Sect8KP_steering = 0.165; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect8KP_steering = 0.15; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect8KI_steering = 0.8; //best is ki = 0.055 and kd = 0.001 so far
 float Sect8KD_steering = 0.0;
 // float slowKP_steering = 0.075; // proportional gain for when speed is set to slow
@@ -62,7 +62,7 @@ float Sect8KD_steering = 0.0;
 ////////////////////////////////////////////////////////////////////
 ////////////////////*INITIALIZE VARIABLES*//////////////////////////
 // initialize positioning on track
-int num_landmarks = 10;
+int num_landmarks = 4;
 // set initial speed and gains for section three (after the straightaway)
 float initialSpeed = fastSpeed;
 float KP_steering = Sect1KP_steering; 
@@ -277,7 +277,7 @@ void landmarkUpdate()
             // second half of hairpin
             else if(num_landmarks == 5){
                 landmarkLED.write(1);
-                // center = 0.064;
+                center = 0.064;
                 targetSpeed = fastSpeed3;
                  KP_steering = ExtraslowKP_steering;
                  KI_steering = ExtraslowKI_steering;
@@ -286,7 +286,7 @@ void landmarkUpdate()
             // corner out of hairpin
             else if(num_landmarks == 6){
                 landmarkLED.write(0);
-                // center = 0.066;
+                center = 0.066;
                 targetSpeed = slowSpeed;
                  KP_steering = Sect4KP_steering;
                  KI_steering = Sect4KI_steering;
