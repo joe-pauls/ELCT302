@@ -12,11 +12,11 @@
 bool new_steering_update = false; // flag for recalculating steering feedback
 bool landmark_detected = false;
 
-float slowSpeed = 0.21; // by power station
+float slowSpeed = 0.22; // by power station
 float slowSpeed2 = 0.23; // for big turn
-float fastSpeed = 0.24;
-float fastSpeed2 = 0.215; // 2nd straightaway
-float fastSpeed3 = 0.215; // hairpin
+float fastSpeed = 0.24; // for main straightaway
+float fastSpeed2 = 0.23; // 2nd straightaway
+float fastSpeed3 = 0.22; // hairpin
 
 
 //First straightaway
@@ -25,11 +25,11 @@ float Sect1KI_steering = 0.9;//0.008;
 float Sect1KD_steering = 0.0;//0.000012;
 //preliminary slow down on straight same gains
 float Sect2KP_steering = 0.13; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect2KI_steering = 0.9; //best is ki = 0.055 and kd = 0.001 so far
+float Sect2KI_steering = 0.75; //best is ki = 0.055 and kd = 0.001 so far
 float Sect2KD_steering = 0.0;
 //start corner 1
 float Sect3KP_steering = 0.16; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect3KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
+float Sect3KI_steering = 0.2; //best is ki = 0.055 and kd = 0.001 so far
 float Sect3KD_steering = 0.00000;
 //Start hairpin (first and second half)
 float ExtraslowKP_steering = 0.17; //0.1325; // proportional gain for when speed is set to slow //best 0.076
@@ -40,21 +40,21 @@ float Sect4KP_steering = 0.17; //0.1325; // proportional gain for when speed is 
 float Sect4KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
 float Sect4KD_steering = 0.0;
 //2ndStraigtaway
-float Sect5KP_steering = 0.17; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect5KP_steering = 0.14; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect5KI_steering = 0.8; //best is ki = 0.055 and kd = 0.001 so far
 float Sect5KD_steering = 0.0;//0.000012;
 //corner 3
-float Sect6KP_steering = 0.14; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect6KI_steering = 0.2; //best is ki = 0.055 and kd = 0.001 so far
-float Sect6KD_steering = 0.000002;
+float Sect6KP_steering = 0.16; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect6KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
+float Sect6KD_steering = 0.0;
 // straight by power station
-float Sect7KP_steering = 0.14; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect7KI_steering = 0.2; //best is ki = 0.055 and kd = 0.001 so far
+float Sect7KP_steering = 0.165; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect7KI_steering = 0.6; //best is ki = 0.055 and kd = 0.001 so far
 float Sect7KD_steering = 0.0;
 
-float Sect8KP_steering = 0.18; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect8KP_steering = 0.165; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect8KI_steering = 0.8; //best is ki = 0.055 and kd = 0.001 so far
-float Sect8KD_steering = 0.000002;
+float Sect8KD_steering = 0.0;
 // float slowKP_steering = 0.075; // proportional gain for when speed is set to slow
 // float slowKI_steering = 0.05;
 // float slowKD_steering = 0.0001;
@@ -62,13 +62,12 @@ float Sect8KD_steering = 0.000002;
 ////////////////////////////////////////////////////////////////////
 ////////////////////*INITIALIZE VARIABLES*//////////////////////////
 // initialize positioning on track
-int num_landmarks = 4;
+int num_landmarks = 10;
 // set initial speed and gains for section three (after the straightaway)
 float initialSpeed = fastSpeed;
 float KP_steering = Sect1KP_steering; 
 float KI_steering = Sect1KI_steering; 
 float KD_steering = Sect1KD_steering; 
-
 
 // float Kcrit = 0.5;
 // float Tcrit = 2.1;
@@ -85,7 +84,7 @@ float reference = 0.0;
 float senSlope = 10; //13
 float center = 0.065; // 0.066
 float control_threshold = 0.01; //0.01 percent change that must occur for steering control to implement
-float steering_bias_constant = 0; // constant that is added to the value from right inductive sensor to center the car
+
 
 DigitalIn right_bumper(D2);
 DigitalIn left_bumper(D8);
@@ -160,13 +159,13 @@ void get_steering_feedback() {
         left_sensor_sum += inductor1.read();
         right_sensor_sum += inductor2.read();
     }
-    float left_sensor_avg = sqrt(left_sensor_sum/samples) + steering_bias_constant; // using square root but it lowkey works better by weighting further distances higher and reducing drastic dropoff
+    float left_sensor_avg = sqrt(left_sensor_sum/samples); // using square root but it lowkey works better by weighting further distances higher and reducing drastic dropoff
     float right_sensor_avg = sqrt(right_sensor_sum/samples);
-   // printf("   left sensor: %3.3f", left_sensor_avg);
-   // printf("   right sensor: %3.3f", right_sensor_avg);
-   // printf("    error: %3.3f", left_sensor_avg-right_sensor_avg);
+//    printf("   left sensor: %3.3f", left_sensor_avg);
+//    printf("   right sensor: %3.3f", right_sensor_avg);
+//    printf("    error: %3.3f\n", left_sensor_avg-right_sensor_avg);
     //Off track detection
-    if(left_sensor_avg - steering_bias_constant < 0.05 && right_sensor_avg < 0.05) {
+    if(left_sensor_avg < 0.05 && right_sensor_avg < 0.05) {
         targetSpeed = 0.0;
         brakeCircuit.write(1);
         programRunning = false;
@@ -232,7 +231,7 @@ void landmarkUpdate()
     if (programRunning){
         //First straightaway (left = 0, right = 0)
             if (num_landmarks == 0){
-                    // integralSum = 0; // reset integral term to prevent windup
+                    integralSum = 0; // reset integral term to prevent windup
                     targetSpeed = fastSpeed;
                     KP_steering = Sect1KP_steering;
                     KI_steering = Sect1KI_steering;
@@ -242,7 +241,7 @@ void landmarkUpdate()
             }
             else if(num_landmarks == 1){
                 landmarkLED.write(1);
-                targetSpeed = slowSpeed2;
+                targetSpeed = slowSpeed2 - 0.1;
                 // center = 0.066;
                 // brakeCircuit.write(1);
                  KP_steering = Sect2KP_steering;
@@ -319,7 +318,7 @@ void landmarkUpdate()
             else if(num_landmarks == 10){
                 landmarkLED.write(1);
                 // center = 0.066;
-                targetSpeed = fastSpeed;
+                targetSpeed = slowSpeed;
                 KP_steering = Sect8KP_steering;
                 KI_steering = Sect8KI_steering;
                 KD_steering = Sect8KD_steering;
