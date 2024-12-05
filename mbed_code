@@ -12,20 +12,20 @@
 bool new_steering_update = false; // flag for recalculating steering feedback
 bool landmark_detected = false;
 
-float slowSpeed = 0.205; // by power station
+float slowSpeed = 0.21; // by power station
 float slowSpeed2 = 0.23; // for big turn
-float fastSpeed = 0.23;
-float fastSpeed2 = 0.205; // 2nd straightaway
+float fastSpeed = 0.24;
+float fastSpeed2 = 0.215; // 2nd straightaway
 float fastSpeed3 = 0.215; // hairpin
 
 
 //First straightaway
-float Sect1KP_steering = 0.16;//0.045; // proportional gain for when speed is set to fast
+float Sect1KP_steering = 0.13;//0.045; // proportional gain for when speed is set to fast
 float Sect1KI_steering = 0.9;//0.008;
 float Sect1KD_steering = 0.0;//0.000012;
 //preliminary slow down on straight same gains
-float Sect2KP_steering = 0.16; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect2KI_steering = 0.85; //best is ki = 0.055 and kd = 0.001 so far
+float Sect2KP_steering = 0.13; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect2KI_steering = 0.9; //best is ki = 0.055 and kd = 0.001 so far
 float Sect2KD_steering = 0.0;
 //start corner 1
 float Sect3KP_steering = 0.16; //0.1325; // proportional gain for when speed is set to slow //best 0.076
@@ -33,23 +33,23 @@ float Sect3KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
 float Sect3KD_steering = 0.00000;
 //Start hairpin (first and second half)
 float ExtraslowKP_steering = 0.17; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float ExtraslowKI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
+float ExtraslowKI_steering = 0.2; //best is ki = 0.055 and kd = 0.001 so far
 float ExtraslowKD_steering = 0.0;
 //corner 2 out of hairpin
 float Sect4KP_steering = 0.17; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect4KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
 float Sect4KD_steering = 0.0;
 //2ndStraigtaway
-float Sect5KP_steering = 0.18; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect5KP_steering = 0.17; //0.1325; // proportional gain for when speed is set to slow //best 0.076
 float Sect5KI_steering = 0.8; //best is ki = 0.055 and kd = 0.001 so far
 float Sect5KD_steering = 0.0;//0.000012;
 //corner 3
-float Sect6KP_steering = 0.15; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect6KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
+float Sect6KP_steering = 0.14; //0.1325; // proportional gain for when speed is set to slow //best 0.076
+float Sect6KI_steering = 0.2; //best is ki = 0.055 and kd = 0.001 so far
 float Sect6KD_steering = 0.000002;
 // straight by power station
 float Sect7KP_steering = 0.14; //0.1325; // proportional gain for when speed is set to slow //best 0.076
-float Sect7KI_steering = 0.4; //best is ki = 0.055 and kd = 0.001 so far
+float Sect7KI_steering = 0.2; //best is ki = 0.055 and kd = 0.001 so far
 float Sect7KD_steering = 0.0;
 
 float Sect8KP_steering = 0.18; //0.1325; // proportional gain for when speed is set to slow //best 0.076
@@ -83,7 +83,7 @@ float integralSum = 0.0; // Area prior
 float controllerOutput = 0.0;
 float reference = 0.0;
 float senSlope = 10; //13
-float center = 0.066; // 0.066
+float center = 0.065; // 0.066
 float control_threshold = 0.01; //0.01 percent change that must occur for steering control to implement
 float steering_bias_constant = 0; // constant that is added to the value from right inductive sensor to center the car
 
@@ -218,19 +218,13 @@ void drivingUpdate() {
 // Main steering function called by the ticker
 void steeringUpdate()
 {
-    new_steering_update = true;
     error_current_steering = reference - feedback;
-    // if(abs(error_current_steering) > 0.02){ // Anti-windup, reset integral term to 0 if car is in center of track
-    //     integralSum += error_current_steering*TI_steering;
-    // }
     errorChange = (error_current_steering - previousError)/TI_steering; // Euler approximation of derivative
     controlAction = calculatePIDOutput(TI_steering, error_current_steering, errorChange, integralSum, KP_steering, KI_steering, KD_steering);
     previousError = error_current_steering;
-    
-    float bound = 0.02;
+    static float bound = 0.02;
     float bounded_controlAction = (fmax(-bound, fmin(controlAction, bound)));
     servo.write(center+bounded_controlAction);
-    new_steering_update = true;
 }
 
 void landmarkUpdate()
@@ -351,6 +345,7 @@ void onButtonPress() {
 
 int main()
 {
+    servo.write(center);
     servo.period_ms(20); // set servo frequency to 50 Hz (20 ms period)
     // Initialize steering Ticker
     Ticker steering_ticker;
